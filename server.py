@@ -11,7 +11,8 @@ from typing import Any
 mcp = FastMCP("Demo")
 
 # use beta because cloud does not yet allow anonymous retrieval of module docs
-GP_URL = "https://beta.genepattern.org/gp/"
+GP_HOST = "https://beta.genepattern.org/"
+GP_URL = GP_HOST +"gp/"
 GP_API_BASE = GP_URL +"/rest/v1/" # tasks/all.json"
 
 # Add an addition tool
@@ -123,10 +124,10 @@ async def get_module_documentation(module_name_or_lsid: str) -> bytes | None:
     file_path = os.path.join(cache_dir, lsid)
 
     # Fetch the documentation
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         try:
-            print(f"Fetching documentation for {module_name_or_lsid} from {  GP_URL + documentation_url}")
-            response = await client.get(GP_URL + documentation_url, timeout=30.0)
+            print(f"Fetching documentation for {module_name_or_lsid} from {  GP_HOST + documentation_url}")
+            response = await client.get(GP_HOST + documentation_url, timeout=30.0)
             response.raise_for_status()
             file_contents = response.content
 
