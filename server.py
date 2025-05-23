@@ -61,3 +61,16 @@ def all_categories() -> str:
     parsed = response.json()
     category_names = list(map(lambda x: x['name'], parsed['all_categories']))
     return json.dumps(category_names)
+
+
+def main():
+    # Call the async function using asyncio.run
+    result = asyncio.run(get_all_modules_list())
+    print(result)
+
+if __name__ == "__main__":
+    # Initialize and run the server
+    mcp.run(transport='stdio')
+    #main()
+
+
