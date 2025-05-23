@@ -48,11 +48,12 @@ async def get_all_modules_list():
             print(f"Error fetching modules: {e}")
             return None
 
+
 @mcp.resource("data://all_modules", mime_type="application/json")
-def all_modules() -> str:
+async def all_modules() -> str:
     """All GenePattern modules available on the GenePattern server"""
 
-    return json.dumps(get_all_modules_list())
+    return json.dumps(await get_all_modules_list())
 
 
 @mcp.resource("data://filter_modules/{keyword}", mime_type="application/json")
