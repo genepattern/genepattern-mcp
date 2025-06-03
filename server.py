@@ -5,7 +5,9 @@ from mcp.server.fastmcp import FastMCP
 import httpx
 import asyncio
 import os
-from typing import Any
+
+# Run on port 3000, if not specified - avoids conflicts with Django
+if "FASTMCP_PORT" not in os.environ: os.environ["FASTMCP_PORT"] = "3000"
 
 # Create an MCP server
 mcp = FastMCP("Demo")
@@ -150,7 +152,6 @@ def main():
 
 if __name__ == "__main__":
     # Initialize and run the server
-    mcp.run(transport='stdio')
-    #main()
+    mcp.run(transport="streamable-http")
 
 
