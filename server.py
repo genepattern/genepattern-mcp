@@ -5,6 +5,8 @@ from mcp.server.fastmcp import FastMCP
 import httpx
 import asyncio
 import os
+from typing import Optional
+import pypdfium2 as pdfium
 
 # Run on port 3000, if not specified - avoids conflicts with Django
 if "FASTMCP_PORT" not in os.environ: os.environ["FASTMCP_PORT"] = "3000"
@@ -16,20 +18,6 @@ mcp = FastMCP("Demo")
 GP_HOST = "https://beta.genepattern.org/"
 GP_URL = GP_HOST +"gp/"
 GP_API_BASE = GP_URL +"/rest/v1/" # tasks/all.json"
-
-# Add an addition tool
-@mcp.tool()
-def add(a: int, b: int) -> int:
-    """Add two numbers"""
-    return a + b
-
-
-
-# Add a dynamic greeting resource
-@mcp.resource("greeting://{name}")
-def get_greeting(name: str) -> str:
-    """Get a personalized greeting"""
-    return f"Hello, {name}!"
 
 
 async def get_all_modules_list():
@@ -92,30 +80,33 @@ def all_categories() -> str:
 
 
 @mcp.tool()
-async def get_module_documentation(module_name_or_lsid: str) -> bytes | None:
+async def get_module_documentation(module_name_or_lsid: str) -> Optional[str]:
     """
-    Fetch and save the documentation for a GenePattern module.
+    Fetch and save the documentation for a GenePattern module, returning it as a Unicode string.
+    Converts PDF documentation to text.
 
     Args:
-        module_name_or_lsid: The name or LSID of the module. TBD is the LSID lookup
+        module_name_or_lsid: The name or LSID of the module.
 
     Returns:
-        The file contents of the documentation as bytes, or None if the module or documentation is not found.
+        The file contents of the documentation as a Unicode string, or None if the module,
+        documentation is not found, or conversion fails.
     """
 
     module_json = await get_all_modules_list()
     module_dictionary = {module["name"]: module for module in module_json}
-
 
     # Find the module by name or LSID
     module = module_dictionary.get(module_name_or_lsid)
     if not module:
         return None
 
-    # Get the documentation URL
+    # Get the documentation URL and mimetype
     documentation_url = module.get("documentation")
-    if not documentation_url:
-        print(f"No documentation found for module {module_name_or_lsid}")
+    documentation_mimetype = module.get("documentation_mimetype")  # Assuming this is now available
+
+    if not documentation_url or not documentation_mimetype:
+        print(f"No documentation URL or mimetype found for module {module_name_or_lsid}")
         return None
 
     # Ensure the cache directory exists
@@ -126,20 +117,57 @@ async def get_module_documentation(module_name_or_lsid: str) -> bytes | None:
     lsid = module["lsid"]
     file_path = os.path.join(cache_dir, lsid)
 
-    # Fetch the documentation
     async with httpx.AsyncClient(follow_redirects=True) as client:
         try:
-            print(f"Fetching documentation for {module_name_or_lsid} from {  GP_HOST + documentation_url}")
-            response = await client.get(GP_HOST + documentation_url, timeout=30.0)
+            full_url = GP_HOST + documentation_url
+            print(f"Fetching documentation for {module_name_or_lsid} from {full_url}")
+            response = await client.get(full_url, timeout=30.0)
             response.raise_for_status()
-            file_contents = response.content
+            file_contents_bytes = response.content
 
-            # Save the file
+            # Save the file (optional, but good for caching)
             with open(file_path, "wb") as file:
-                file.write(file_contents)
+                file.write(file_contents_bytes)
 
-            return file_contents
-        except Exception:
+            # Determine content type and return appropriate string
+            if "text/" in documentation_mimetype:
+                try:
+                    return file_contents_bytes.decode('utf-8')
+                except UnicodeDecodeError:
+                    print(
+                        f"Warning: Could not decode text content for {module_name_or_lsid} with utf-8. Trying latin-1.")
+                    return file_contents_bytes.decode('latin-1')  # Fallback for common text encodings
+            elif documentation_mimetype == "application/pdf":
+                try:
+                    # Save PDF to a temporary file to allow pypdfium2 to read it
+                    temp_pdf_path = f"{file_path}.pdf"
+                    with open(temp_pdf_path, "wb") as temp_pdf_file:
+                        temp_pdf_file.write(file_contents_bytes)
+
+                    # Convert PDF to text using pypdfium2
+                    doc = pdfium.PdfDocument(temp_pdf_path)
+                    text_content = ""
+                    for i in range(len(doc)):
+                        page = doc[i]
+                        text_content += page.get_text_page().get_text_range() + "\n"
+                    doc.close()
+                    os.remove(temp_pdf_path)  # Clean up temporary PDF file
+                    return text_content
+                except Exception as e:
+                    print(f"Error converting PDF for {module_name_or_lsid}: {e}")
+                    return None
+            else:
+                print(f"Unsupported MIME type for {module_name_or_lsid}: {documentation_mimetype}")
+                return None
+
+        except httpx.RequestError as e:
+            print(f"HTTP request failed for {module_name_or_lsid}: {e}")
+            return None
+        except httpx.HTTPStatusError as e:
+            print(f"HTTP status error for {module_name_or_lsid}: {e}")
+            return None
+        except Exception as e:
+            print(f"An unexpected error occurred for {module_name_or_lsid}: {e}")
             return None
 
 
