@@ -20,9 +20,9 @@ GP_URL = GP_HOST +"gp/"
 GP_API_BASE = GP_URL +"/rest/v1/" # tasks/all.json"
 
 
-async def get_all_modules_list():
+async def _get_all_modules_list():
     """
-    Fetch a list of all installed GenePattern modules from the GenePattern cloud server.
+    Fetch a list of all installed GenePattern modules from the GenePattern server.
 
     Returns:
         A dictionary keyed by module name, containing each module's details if the request
@@ -41,14 +41,22 @@ async def get_all_modules_list():
 
 @mcp.resource("data://all_modules", mime_type="application/json")
 async def all_modules() -> str:
-    """All GenePattern modules available on the GenePattern server"""
+    """All GenePattern modules available on the GenePattern server
+    Returns:
+        A JSON string containing a list of all GenePattern modules.
+    """
 
-    return json.dumps(await get_all_modules_list())
+    return json.dumps(await _get_all_modules_list())
 
 
 @mcp.resource("data://filter_modules/{keyword}", mime_type="application/json")
 def filter_modules(keyword: str = '') -> str:
-    """Filter GenePattern modules for those matching a particular keyword"""
+    """Filter GenePattern modules by keyword
+    Args:
+        keyword: A string to filter modules by subsstring in name, description, tags, or LSID.
+    Returns:
+        A JSON string containing a list of GenePattern modules that match the keyword.
+    """
     response = requests.get(GP_API_BASE+'tasks/all.json')
     response.raise_for_status()
     parsed = response.json()
@@ -61,7 +69,10 @@ def filter_modules(keyword: str = '') -> str:
 
 @mcp.resource("data://module_names", mime_type="application/json")
 def module_names() -> str:
-    """Get the names of all available GenePattern modules"""
+    """Get the names of all GenePattern modules
+    Returns:
+        A JSON string containing a list of all GenePattern module names.
+    """
     response = requests.get(GP_API_BASE+'tasks/all.json')
     response.raise_for_status()
     parsed = response.json()
@@ -71,7 +82,10 @@ def module_names() -> str:
 
 @mcp.resource("data://all_categories", mime_type="application/json")
 def all_categories() -> str:
-    """Get the names of all GenePattern module categories"""
+    """ Get all GenePattern module categories
+    Returns:
+        A JSON string containing a list of all GenePattern module categories.
+    """
     response = requests.get(GP_API_BASE+'tasks/all.json')
     response.raise_for_status()
     parsed = response.json()
@@ -93,7 +107,7 @@ async def get_module_documentation(module_name_or_lsid: str) -> Optional[str]:
         documentation is not found, or conversion fails.
     """
 
-    module_json = await get_all_modules_list()
+    module_json = await _get_all_modules_list()
     module_dictionary = {module["name"]: module for module in module_json}
 
     # Find the module by name or LSID
@@ -171,12 +185,11 @@ async def get_module_documentation(module_name_or_lsid: str) -> Optional[str]:
             return None
 
 
-
-
 def main():
     # Call the async function using asyncio.run
     result = asyncio.run(all_categories())
     print(result)
+
 
 if __name__ == "__main__":
     # Initialize and run the server
