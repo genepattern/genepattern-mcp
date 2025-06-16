@@ -17,7 +17,16 @@ mcp = FastMCP("Demo")
 # use beta because cloud does not yet allow anonymous retrieval of module docs
 GP_HOST = "https://beta.genepattern.org/"
 GP_URL = GP_HOST +"gp/"
-GP_API_BASE = GP_URL +"/rest/v1/" # tasks/all.json"
+GP_API_BASE = GP_URL +"/rest/v1/"
+
+
+@mcp.resource("data://recent_jobs/{auth_token}", mime_type="application/json")
+def recent_jobs(auth_token: str = '') -> str:
+    headers = { "Authorization": f"Bearer {auth_token}" }
+    response = requests.get(GP_API_BASE + 'jobs/', headers=headers)
+    response.raise_for_status()
+    parsed = response.json()
+    return json.dumps(parsed)
 
 
 async def _get_all_modules_list():
@@ -194,5 +203,3 @@ def main():
 if __name__ == "__main__":
     # Initialize and run the server
     mcp.run(transport="streamable-http")
-
-
