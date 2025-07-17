@@ -73,11 +73,14 @@ except (ImportError, TypeError) as e:
     exit(1)
 
 # Import all tools (imported here because they depend on the mcp instance)
-from genepattern_mcp.files import *
+from genepattern_mcp.data import *
+from genepattern_mcp.disk import *
 from genepattern_mcp.jobs import *
-from genepattern_mcp.system import *
+from genepattern_mcp.config import *
+from genepattern_mcp.tags import *
 from genepattern_mcp.tasks import *
 from genepattern_mcp.uploads import *
+from genepattern_mcp.usage import *
 
 if __name__ == "__main__":
     # Initialize and run the server
