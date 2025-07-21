@@ -1,14 +1,35 @@
 from mcp.server.fastmcp import Context
 from typing import Dict, Any, Optional, List
+from pydantic import BaseModel, Field
 from ._shared import _make_request, mcp
 
+# ------------------------------------------------------------------------------
+# Pydantic Models for Job Submission
+# ------------------------------------------------------------------------------
+
+class JobParameter(BaseModel):
+    """
+    Defines a single parameter for a job submission.
+    """
+    name: str = Field(..., description="The name of the parameter.")
+    values: List[str] = Field(..., description="A list of values for the parameter.")
+    group_id: Optional[str] = Field(None, alias="groupId", description="An optional identifier used solely in file group parameters.")
+    batch_param: Optional[bool] = Field(None, alias="batchParam", description="Set to True if this parameter is used for batch processing.")
+
+class JobPayload(BaseModel):
+    """
+    Defines the complete payload for submitting a new job.
+    """
+    lsid: str = Field(..., description="The Life Science Identifier (LSID) of the module to run.")
+    params: List[JobParameter] = Field(..., description="A list of parameters for the job.")
+    tags: Optional[List[str]] = Field(None, description="An optional list of tags to associate with the job.")
 
 # ------------------------------------------------------------------------------
 # Job Submission
 # ------------------------------------------------------------------------------
 
 @mcp.tool()
-def add_job(context: Context, job_payload: Dict[str, Any]) -> Dict[str, Any]:
+def add_job(context: Context, job_payload: JobPayload) -> Dict[str, Any]:
     """
     Submits a new job or a batch of jobs to the server.
 
