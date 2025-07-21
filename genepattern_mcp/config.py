@@ -60,7 +60,7 @@ def get_server_property(context: Context, property_name: str) -> Dict[str, Any]:
 
 
 @mcp.tool()
-def get_gator_version(context: Context) -> Dict[str, Any]:
+def get_genepattern_version(context: Context) -> Dict[str, Any]:
     """
     Gets the current version of the GenePattern server.
 
