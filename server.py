@@ -83,5 +83,6 @@ from genepattern_mcp.uploads import *
 from genepattern_mcp.usage import *
 
 if __name__ == "__main__":
-    # Initialize and run the server
+    # Set the port and run the server
+    mcp.settings.port = args.port
     mcp.run(transport=args.transport)
