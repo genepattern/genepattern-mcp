@@ -5,14 +5,9 @@ import requests
 from mcp.server import FastMCP
 from mcp.server.fastmcp import Context
 from typing import Optional, Dict, Any
-
-
-# Create the FastMCP server instance
-mcp = FastMCP("GenePattern")
-
-# Set the base URL for the GenePattern RESTful API
-GENEPATTERN_URL = os.environ.get("GENEPATTERN_URL", "https://cloud.genepattern.org/gp")
-REST_URL = f"{GENEPATTERN_URL}/rest"
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 
 class AuthHandler(abc.ABC):
@@ -31,33 +26,87 @@ class EnvAuthHandler(AuthHandler):
     from the GENEPATTERN_KEY environment variable.
     """
     def get_api_key(self, context: Context) -> Optional[str]:
-        """Retrieves the API key from the environment."""
+        """Retrieves the API key from the environment"""
         return os.environ.get("GENEPATTERN_KEY")
 
 
-# The active auth handler instance, initialized to the default
-_auth_handler: AuthHandler = EnvAuthHandler()
+class HeaderAuthHandler(AuthHandler):
+    """
+    Default authentication handler that retrieves the API key
+    from the Authorization header in the request
+    """
+    def get_api_key(self, context: Context) -> Optional[str]:
+        """Retrieves the API key from the request's Authorization header"""
+        scope = context.request_context.request.scope
+        token = scope.get("token")
+        return token
 
 
-def set_auth_handler(class_path: str):
-    """
-    Dynamically imports and instantiates the specified AuthHandler class.
-    Args:
-        class_path: The full Python path to the handler class (e.g., 'my_module.MyClass').
-    Raises:
-        ImportError: If the class or module cannot be found.
-        TypeError: If the specified class is not a subclass of AuthHandler.
-    """
-    global _auth_handler
-    try:
-        module_path, class_name = class_path.rsplit('.', 1)
-        module = importlib.import_module(module_path)
-        handler_class = getattr(module, class_name)
-        if not issubclass(handler_class, AuthHandler):
-            raise TypeError(f"Class '{class_path}' must be a subclass of 'AuthHandler'")
-        _auth_handler = handler_class()
-    except (ImportError, AttributeError, ValueError) as e:
-        raise ImportError(f"Could not import or instantiate AuthHandler from '{class_path}': {e}") from e
+class GenePatternMCP(FastMCP):
+    """A custom FastMCP server for GenePattern, extending the base FastMCP class."""
+    auth_handler: AuthHandler
+
+    def __init__(self, name: str, auth_handler: Optional[AuthHandler] = None):
+        super().__init__(name)
+        self.auth_handler = auth_handler or EnvAuthHandler()
+
+    class AuthHandlerMiddleware(BaseHTTPMiddleware):
+        """ Middleware to handle authentication by extracting the bearer token"""
+
+        async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+            """ Handles the request to extract the bearer token from the Authorization header."""
+            request.scope["token"] = None                        # Initialize the token in the scope to None
+            auth_header = request.headers.get("Authorization")  # Check for the Authorization header
+            if auth_header:                                     # Should be in the format "Bearer <token>"
+                parts = auth_header.split()                     # Check if the header has two parts
+                if len(parts) == 2 and parts[0].lower() == "bearer":  # and the first part is "Bearer"
+                    token = parts[1]
+                    request.scope["token"] = token              # Add the token to the request's scope
+            response = await call_next(request)                 # Proceed to the next middleware
+            return response
+
+    async def run_streamable_http_async(self) -> None:
+        """Overrides the default run_streamable_http_async method to add the middleware."""
+        import uvicorn
+
+        starlette_app = self.streamable_http_app()
+        starlette_app.add_middleware(self.AuthHandlerMiddleware) # Add AuthHandler middleware
+
+        config = uvicorn.Config(
+            starlette_app,
+            host=self.settings.host,
+            port=self.settings.port,
+            log_level=self.settings.log_level.lower(),
+        )
+        server = uvicorn.Server(config)
+        await server.serve()
+
+    def set_auth_handler(self, class_path: str):
+        """
+        Dynamically imports and instantiates the specified AuthHandler class.
+        Args:
+            class_path: The full Python path to the handler class (e.g., 'my_module.MyClass').
+        Raises:
+            ImportError: If the class or module cannot be found.
+            TypeError: If the specified class is not a subclass of AuthHandler.
+        """
+        try:
+            module_path, class_name = class_path.rsplit('.', 1)
+            module = importlib.import_module(module_path)
+            handler_class = getattr(module, class_name)
+            if not issubclass(handler_class, AuthHandler):
+                raise TypeError(f"Class '{class_path}' must be a subclass of 'AuthHandler'")
+            self.auth_handler = handler_class()
+        except (ImportError, AttributeError, ValueError) as e:
+            raise ImportError(f"Could not import or instantiate AuthHandler from '{class_path}': {e}") from e
+
+
+# Create the FastMCP server instance
+mcp = GenePatternMCP("GenePattern")
+
+# Set the base URL for the GenePattern RESTful API
+GENEPATTERN_URL = os.environ.get("GENEPATTERN_URL", "https://cloud.genepattern.org/gp")
+REST_URL = f"{GENEPATTERN_URL}/rest"
 
 
 def _make_request(context: Context, method: str, path: str, params: Optional[Dict[str, Any]] = None,
@@ -82,7 +131,7 @@ def _make_request(context: Context, method: str, path: str, params: Optional[Dic
     Raises:
         Exception: If the API request fails.
     """
-    api_key = _auth_handler.get_api_key(context)
+    api_key = mcp.auth_handler.get_api_key(context)
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Accept": "application/json",

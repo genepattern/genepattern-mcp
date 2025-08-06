@@ -62,12 +62,14 @@ parser.add_argument('--port', '-p',
 )
 args, unknown = parser.parse_known_args()
 
-# Set up the MCP server and AuthHandler (Imported here to as to respect environment variables)
+# Set environment variables
 os.environ["GENEPATTERN_URL"] = str(args.genepattern)
 if args.key: os.environ["GENEPATTERN_KEY"] = str(args.key)
 os.environ["FASTMCP_PORT"] = str(args.port)
-from genepattern_mcp._shared import mcp, set_auth_handler
-try: set_auth_handler(args.auth_handler)
+
+# Import the MCP server and set AuthHandler
+from genepattern_mcp._shared import mcp
+try: mcp.set_auth_handler(args.auth_handler)
 except (ImportError, TypeError) as e:
     print(f"Error: Could not set authentication handler. {e}")
     exit(1)
