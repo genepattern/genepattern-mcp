@@ -230,15 +230,60 @@ def get_task_documentation(context: Context, task_name_or_lsid: str) -> Optional
         doc_mimetype = 'application/pdf' if doc_url.lower().endswith('.pdf') else 'text/html'
         print(f"Warning: MIME type not specified. Inferred as '{doc_mimetype}'.")
 
-    # 4. Fetch the documentation content from its URL
+    # 4. Fetch the documentation content from its URL (follow HTTP and HTML meta refresh redirects)
     try:
-        full_url = f"{GENEPATTERN_URL[:-3]}{doc_url}"
-        print(f"Fetching documentation for '{task_name_or_lsid}' from {full_url}...")
+        from html.parser import HTMLParser
+        from urllib.parse import urljoin
+        import re
 
-        # Documentation is typically public, so no authorization header is needed here.
-        response = requests.get(full_url, timeout=30, allow_redirects=True)
-        response.raise_for_status()
+        class _MetaRefreshParser(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.refresh_url: Optional[str] = None
+            def handle_starttag(self, tag, attrs):
+                if tag.lower() != "meta":
+                    return
+                attrs_dict = {k.lower(): (v or "") for k, v in attrs}
+                if attrs_dict.get("http-equiv", "").lower() == "refresh":
+                    content = attrs_dict.get("content", "")
+                    m = re.search(r"url\s*=\s*([\"']?)([^'\";]+)\1", content, flags=re.I)
+                    if m:
+                        self.refresh_url = m.group(2)
+
+        def _fetch_follow_meta(url: str, max_hops: int = 3) -> requests.Response:
+            current_url = url
+            for _ in range(max_hops + 1):
+                resp = requests.get(current_url, timeout=30, allow_redirects=True)
+                resp.raise_for_status()
+                content_type = resp.headers.get("Content-Type", "")
+                if "html" in content_type.lower():
+                    parser = _MetaRefreshParser()
+                    # Use response.text to leverage requests' encoding detection
+                    parser.feed(resp.text)
+                    if parser.refresh_url:
+                        next_url = urljoin(resp.url, parser.refresh_url)
+                        if not next_url or next_url == current_url:
+                            return resp
+                        current_url = next_url
+                        # continue to next loop iteration to fetch the new URL
+                        continue
+                return resp
+            return resp  # after exhausting hops, return last response
+
+        full_url = f"{GENEPATTERN_URL[:-3]}{doc_url}"
+        print(f"Fetching documentation for '{task_name_or_lsid}' from {full_url} (following meta refresh if present)...")
+        response = _fetch_follow_meta(full_url)
         doc_bytes = response.content
+
+        # Prefer server-declared content type; fallback to extension of final URL or previously inferred type
+        content_type = response.headers.get("Content-Type", "")
+        final_url = getattr(response, "url", None)
+        if content_type:
+            doc_mimetype = content_type.lower()
+        elif final_url and isinstance(final_url, str) and final_url.lower().endswith(".pdf"):
+            doc_mimetype = "application/pdf"
+        else:
+            doc_mimetype = doc_mimetype or ("application/pdf" if (final_url and isinstance(final_url, str) and final_url.lower().endswith(".pdf")) else "text/html")
 
     except requests.exceptions.RequestException as e:
         print(f"Error: Network request to fetch documentation failed: {e}")
