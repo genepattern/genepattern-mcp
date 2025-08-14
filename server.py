@@ -41,7 +41,7 @@ parser.add_argument('--auth-handler', '-a',
         "The full Python path to the AuthHandler class to use for API key management.\n"
         "Example: genepattern_mcp.custom.DatabaseAuthHandler\n"
         "Env Variable: AUTH_HANDLER\n"
-        "Default: genepattern_mcp._shared.EnvAuthHandler"
+        "Default: genepattern_mcp.EnvAuthHandler"
     )
 )
 parser.add_argument('--transport', '-t',
