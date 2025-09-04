@@ -14,3 +14,17 @@ If using uv, you might need to do it like this instead
 # Dev server testing
 
 > mcp dev server.py
+
+# Connect to GenePattern MCP
+
+```json
+{
+  "mcpServers": {
+    "genepattern": {
+      "type": "streamable-http",
+      "url": "http://localhost:3000/mcp",
+      "env": { "GENEPATTERN_KEY": "<GP API TOKEN>" }
+    }
+  }
+}
+```
