@@ -88,8 +88,9 @@ Below are examples. UI details may vary by client/versionâ€”consult your clientâ
 Use stdio transport when running the server locally.
 
 - Open VS Code Settings (JSON) and add an entry like:
+```json
 {
-  "claude.mcpServers": {
+  "mcpServers": {
     "genepattern": {
       "command": "python",
       "args": ["server.py", "--transport", "stdio"],
@@ -100,6 +101,22 @@ Use stdio transport when running the server locally.
     }
   }
 }
+```
+- Or if running the MCP server independently:
+```json
+{
+  "mcpServers": {
+    "genepattern": {
+      "type": "streamable-http",
+      "url": "http://localhost:3000/mcp",
+      "env": { 
+        "GENEPATTERN_URL": "https://cloud.genepattern.org/gp",
+        "GENEPATTERN_KEY": "<GP API TOKEN>"
+      }
+    }
+  }
+}
+```
 - Ensure GENEPATTERN_KEY is set in your shell environment (or inline in env above).
 
 To connect to a Dockerized HTTP server instead (when supported by your client):
