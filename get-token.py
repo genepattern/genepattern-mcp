@@ -28,7 +28,7 @@ def get_auth_token(gp_url, username, password):
         'grant_type': 'password',
         'username': username,
         'password': password,
-        'client_id': f'GenePatternNotebook-{username}'
+        'client_id': f'GenePatternMCP-{username}'
     }
 
     headers = {

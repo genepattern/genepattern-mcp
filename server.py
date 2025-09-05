@@ -60,6 +60,14 @@ parser.add_argument('--port', '-p',
         "Default: 3000"
     )
 )
+parser.add_argument('--host', '-H',
+    type=str, default=os.getenv('FASTMCP_HOST', "0.0.0.0"),
+    help=(
+        "The host on which to run the MCP server.\n"
+        "Env Variable: FASTMCP_HOST\n"
+        "Default: 0.0.0.0"
+    )
+)
 args, unknown = parser.parse_known_args()
 
 # Set environment variables
@@ -87,4 +95,5 @@ from genepattern_mcp.usage import *
 if __name__ == "__main__":
     # Set the port and run the server
     mcp.settings.port = args.port
+    mcp.settings.host = args.host
     mcp.run(transport=args.transport)
