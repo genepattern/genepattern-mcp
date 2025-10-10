@@ -4,7 +4,7 @@ from ._shared import _make_request, mcp
 
 
 @mcp.tool()
-def get_system_message(context: Context) -> str:
+def get_system_message(context: Context) -> Dict[str, str]:
     """
     Retrieves the currently active system-wide message or banner.
 
@@ -92,20 +92,20 @@ def is_admin(context: Context) -> Dict[str, Any]:
     return _make_request(context, "GET", "/v1/config/admin")
 
 
+# @mcp.tool()
+# def check_is_admin(context: Context) -> Dict[str, str]:
+#     """
+#     Checks if the current user is an administrator by attempting to access an admin-only endpoint.
+#     A successful call confirms admin privileges. The request will fail if the user is not an admin.
+#
+#     Returns:
+#         A success message if the user is an admin.
+#     """
+#     return _make_request(context, "GET", "/v1/config/is-admin")
+
+
 @mcp.tool()
-def check_is_admin(context: Context) -> str:
-    """
-    Checks if the current user is an administrator by attempting to access an admin-only endpoint.
-    A successful call confirms admin privileges. The request will fail if the user is not an admin.
-
-    Returns:
-        A success message if the user is an admin.
-    """
-    return _make_request(context, "GET", "/v1/config/is-admin")
-
-
-@mcp.tool()
-def get_gator_url(context: Context) -> Dict[str, Any]:
+def get_genepattern_url(context: Context) -> Dict[str, Any]:
     """
     Gets the public URL of the GenePattern server.
 

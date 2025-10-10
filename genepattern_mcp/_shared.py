@@ -2,6 +2,7 @@ import abc
 import importlib
 import os
 import requests
+import base64
 from mcp.server import FastMCP
 from mcp.server.fastmcp import Context
 from typing import Optional, Dict, Any
@@ -134,12 +135,14 @@ def _make_request(context: Context, method: str, path: str, params: Optional[Dic
     api_key = mcp.auth_handler.get_api_key(context)
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Accept": "application/json",
+        "Accept": "*/*",  # Accept any content type to avoid 406 errors
     }
     if extra_headers: headers.update(extra_headers)
 
     # Filter out None values from params so they aren't sent
     if params: params = {k: v for k, v in params.items() if v is not None}
+
+    print(f"Making {method} request to {REST_URL}{path} with params={params}, json_data={json_data}, data={'<binary>' if data else None}, files={'<files>' if files else None}, headers={headers}")
 
     try:
         response = requests.request(
@@ -153,14 +156,32 @@ def _make_request(context: Context, method: str, path: str, params: Optional[Dic
         )
         response.raise_for_status()
 
+        print(response.url)
+        print(response.headers)
+        print(response.content)
+
         if response.status_code == 204:  # No Content
             return {"status": "success", "message": "Request completed with no content."}
 
-        content_type = response.headers.get("Content-Type", "")
-        if "application/json" in content_type: return response.json()
-        if "text/" in content_type: return response.text
+        # Extract content type without parameters (e.g., "text/html; charset=utf-8" -> "text/html")
+        content_type = response.headers.get("Content-Type", "").split(';')[0].strip()
 
-        return response.content
+        # Handle JSON responses directly (keep backward compatibility)
+        if "application/json" in content_type:
+            return response.json()
+
+        # Handle text-based responses (HTML, plain text, etc.)
+        if content_type.startswith("text/"):
+            return {content_type: response.text}
+
+        # Handle binary content - base64 encode it
+        if content_type:
+            encoded_content = base64.b64encode(response.content).decode('utf-8')
+            return {content_type: encoded_content}
+
+        # Fallback for unknown content type - treat as binary
+        encoded_content = base64.b64encode(response.content).decode('utf-8')
+        return {"application/octet-stream": encoded_content}
 
     except requests.exceptions.HTTPError as http_err:
         error_message = f"HTTP Error: {http_err.response.status_code} for URL: {http_err.request.url}\nResponse: {http_err.response.text}"
