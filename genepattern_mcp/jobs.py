@@ -20,7 +20,8 @@ class JobPayload(BaseModel):
     """
     Defines the complete payload for submitting a new job.
     """
-    lsid: str = Field(..., description="The Life Science Identifier (LSID) of the module to run.")
+    lsid: Optional[str] = Field(None, description="The Life Science Identifier (LSID) of the module to run. Either lsid or module_name must be provided.")
+    module_name: Optional[str] = Field(None, alias="moduleName", description="The name of the module to run. Either lsid or module_name must be provided. If module_name is provided, the LSID will be looked up automatically.")
     params: List[JobParameter] = Field(..., description="A list of parameters for the job.")
     tags: Optional[List[str]] = Field(None, description="An optional list of tags to associate with the job.")
 
@@ -33,16 +34,20 @@ def add_job(context: Context, job_payload: JobPayload) -> Dict[str, Any]:
     """
     Submits a new job or a batch of jobs to the server.
 
+    This tool accepts either an LSID or a module name. If a module name is provided,
+    it will automatically look up the correct LSID before submitting the job.
+    This prevents issues with hallucinated LSIDs.
+
     Args:
         context: The MCP context.
         job_payload: A dictionary representing the job submission JSON.
-            Example structure:
+            Example structure using LSID:
             {
                 "lsid": "urn:lsid:broad.mit.edu:cancer.software.genepattern.module.analysis:00020:4",
                 "params": [
                     {
                         "name": "input.filename",
-                        "values": ["ftp://ftp.broadinstitute.org/pub/genepattern/datasets/all_aml/all_aml_test.gct"]
+                        "values": ["https://datasets.genepattern.org/data/all_aml/all_aml_test.gct"]
                     },
                     {
                         "name": "output.filename",
@@ -51,10 +56,59 @@ def add_job(context: Context, job_payload: JobPayload) -> Dict[str, Any]:
                 ],
                 "tags": ["analysis", "preprocessing"]
             }
+
+            Example structure using module name:
+            {
+                "module_name": "PreprocessDataset",
+                "params": [
+                    {
+                        "name": "input.filename",
+                        "values": ["https://datasets.genepattern.org/data/all_aml/all_aml_test.gct"]
+                    },
+                    {
+                        "name": "output.filename",
+                        "values": ["all_aml_test.preprocessed.gct"]
+                    }
+                ],
+                "tags": ["analysis", "preprocessing"]
+            }
+
             For batch jobs, include "batchParam": True within a parameter object.
             For file groups, include "groupId": "group_name" within a parameter object.
     """
-    return _make_request(context, "POST", "/v1/jobs", json_data=job_payload)
+    # Validate that either lsid or module_name is provided
+    if not job_payload.lsid and not job_payload.module_name:
+        raise ValueError("Either 'lsid' or 'module_name' must be provided in the job payload.")
+
+    if job_payload.lsid and job_payload.module_name:
+        raise ValueError("Only one of 'lsid' or 'module_name' should be provided, not both.")
+
+    # If module_name is provided, look up the LSID
+    lsid_to_use = job_payload.lsid
+    if job_payload.module_name:
+        task_details = _make_request(
+            context,
+            "GET",
+            f"/v1/tasks/{job_payload.module_name}",
+            params={"includeProperties": False, "includeChildren": False, "includeEula": False,
+                   "includeSupportFiles": False, "includeParamGroups": False, "includeMemorySettings": False}
+        )
+
+        if not task_details or "lsid" not in task_details:
+            raise ValueError(f"Could not find LSID for module '{job_payload.module_name}'. Please verify the module name is correct.")
+
+        lsid_to_use = task_details["lsid"]
+
+    # Build the final payload with the LSID
+    final_payload = {
+        "lsid": lsid_to_use,
+        "params": [param.model_dump(by_alias=True, exclude_none=True) for param in job_payload.params],
+    }
+
+    if job_payload.tags:
+        final_payload["tags"] = job_payload.tags
+
+    return _make_request(context, "POST", "/v1/jobs", json_data=final_payload)
 
 
 # ------------------------------------------------------------------------------

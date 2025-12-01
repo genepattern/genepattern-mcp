@@ -7,11 +7,11 @@ from ._shared import _make_request, mcp
 def rename_file(context: Context, path: str, name: str) -> Dict[str, Any]:
     """
     Renames a file or directory in the user's upload space.
-    This operation is only implemented for files and directories within the '/users/{user_id}/' path.
+    This operation is only implemented for files and directories within the uploads directory.
 
     Args:
         context: The MCP context.
-        path: The full path to the file or directory to rename (e.g., '/users/my_user/data.txt').
+        path: The path to the file or directory to rename, relative to the uploads directory (e.g., 'data.txt' or 'samples/data.txt').
         name: The new name for the file or directory.
     """
     params = {"path": path, "name": name}
@@ -27,7 +27,7 @@ def create_directory(context: Context, path: str) -> Dict[str, Any]:
 
     Args:
         context: The MCP context.
-        path: The path for the new directory, relative to the user's upload root (e.g., 'new_folder/sub_folder').
+        path: The path for the new directory, relative to the uploads directory (e.g., 'new_folder' or 'new_folder/sub_folder').
     """
     return _make_request(context, "PUT", f"/v1/data/createDirectory/{path}")
 
@@ -37,11 +37,11 @@ def create_directory(context: Context, path: str) -> Dict[str, Any]:
 def delete_file_or_directory(context: Context, path: str) -> Dict[str, Any]:
     """
     Deletes a file or directory.
-    Supports deleting from the user's upload space (e.g., '/users/my_user/data.txt') or from job results (e.g., '/jobResults/123/output.txt').
+    Supports deleting from the user's upload space or from job results.
 
     Args:
         context: The MCP context.
-        path: The full path to the file or directory to delete.
+        path: The path to the file or directory to delete. For user uploads, use paths relative to the uploads directory (e.g., 'data.txt' or 'samples/data.txt'). For job results, use paths like 'jobResults/123/output.txt'.
     """
     return _make_request(context, "DELETE", f"/v1/data/delete/{path}")
 
@@ -55,8 +55,8 @@ def copy_file(context: Context, source: str, destination: str) -> Dict[str, Any]
 
     Args:
         context: The MCP context.
-        source: The full path of the file to copy (e.g., '/jobResults/123/output.txt').
-        destination: The full destination path in the user's upload space (e.g., '/users/my_user/copied_file.txt').
+        source: The path of the file to copy. For user uploads, use paths relative to the uploads directory (e.g., 'data.txt'). For job results, use paths like 'jobResults/123/output.txt'.
+        destination: The destination path relative to the uploads directory (e.g., 'copied_file.txt' or 'archive/copied_file.txt').
     """
     params = {"from": source, "to": destination}
     return _make_request(context, "POST", "/v1/data/copy", params=params)
@@ -72,8 +72,8 @@ def move_file(context: Context, source: str, destination: str) -> Dict[str, Any]
 
     Args:
         context: The MCP context.
-        source: The full path of the file or directory to move (e.g., '/users/my_user/old_data.txt').
-        destination: The full destination path (e.g., '/users/my_user/archive/new_data.txt').
+        source: The path of the file or directory to move. For user uploads, use paths relative to the uploads directory (e.g., 'old_data.txt'). For job results, use paths like 'jobResults/123/output.txt'.
+        destination: The destination path relative to the uploads directory (e.g., 'new_data.txt' or 'archive/new_data.txt').
     """
     params = {"from": source, "to": destination}
     return _make_request(context, "PUT", "/v1/data/move", params=params)
@@ -98,7 +98,7 @@ def download_item(context: Context, path: str) -> Dict[str, Any]:
 
     Args:
         context: The MCP context.
-        path: The path to the directory to download (e.g., '/users/my_user/my_folder').
+        path: The path to the directory to download, relative to the uploads directory (e.g., 'my_folder' or 'samples/my_folder').
     """
     params = {"path": path}
     return _make_request(context, "GET", "/v1/data/download", params=params)
@@ -188,7 +188,7 @@ def create_pipeline(
 
     Args:
         context: The MCP context.
-        path: The path to the job result file to use for creating the pipeline (e.g., '/jobResults/123/output.gct').
+        path: The path to the job result file to use for creating the pipeline, typically in the format 'jobResults/123/output.gct'.
         name: The name for the new pipeline. If not provided, a default name (e.g., 'job_123') will be generated.
     """
     params = {}
