@@ -14,34 +14,36 @@ def get_system_message(context: Context) -> Dict[str, str]:
     return _make_request(context, "GET", "/v1/config/system-message")
 
 
-@mcp.tool()
-def set_system_message(
-    context: Context,
-    message: str,
-    start_time: str,
-    end_time: str,
-    delete_on_restart: bool,
-) -> Dict[str, Any]:
-    """
-    Sets or updates the system-wide message. This is an admin-only function.
-
-    Args:
-        context: The MCP context.
-        message: The message content, which can include HTML.
-        start_time: The time for the message to start appearing, in ISO 8601 format (e.g., "2025-07-18T09:00:00Z").
-        end_time: The time for the message to stop appearing, in ISO 8601 format.
-        delete_on_restart: If True, the message will be cleared when the server restarts.
-
-    Returns:
-        A success message upon completion.
-    """
-    payload = {
-        "message": message,
-        "start": start_time,
-        "end": end_time,
-        "deleteOnRestart": delete_on_restart,
-    }
-    return _make_request(context, "POST", "/v1/config/system-message", json_data=payload)
+# REMOVED: Don't want a rogue AI agent screwing up the system message
+#
+# @mcp.tool()
+# def set_system_message(
+#     context: Context,
+#     message: str,
+#     start_time: str,
+#     end_time: str,
+#     delete_on_restart: bool,
+# ) -> Dict[str, Any]:
+#     """
+#     Sets or updates the system-wide message. This is an admin-only function.
+#
+#     Args:
+#         context: The MCP context.
+#         message: The message content, which can include HTML.
+#         start_time: The time for the message to start appearing, in ISO 8601 format (e.g., "2025-07-18T09:00:00Z").
+#         end_time: The time for the message to stop appearing, in ISO 8601 format.
+#         delete_on_restart: If True, the message will be cleared when the server restarts.
+#
+#     Returns:
+#         A success message upon completion.
+#     """
+#     payload = {
+#         "message": message,
+#         "start": start_time,
+#         "end": end_time,
+#         "deleteOnRestart": delete_on_restart,
+#     }
+#     return _make_request(context, "POST", "/v1/config/system-message", json_data=payload)
 
 
 @mcp.tool()

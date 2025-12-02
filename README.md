@@ -55,6 +55,13 @@ Tip: Explore available MCP tools locally with:
 - mcp dev server.py
 
 
+## Testing with copilot
+
+To test the MCP server with GenePattern copilot, you can use the following command:
+
+> python server.py --transport streamable-http --host 0.0.0.0 --port 3000 --auth-handler genepattern_mcp._shared.HeaderAuthHandler
+
+
 ## Docker
 An official container is available at genepattern/mcp.
 

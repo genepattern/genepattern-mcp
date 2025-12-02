@@ -4,46 +4,49 @@ from ._shared import _make_request, mcp
 
 
 @mcp.tool()
-def rename_file(context: Context, path: str, name: str) -> Dict[str, Any]:
+def rename_file(context: Context, user: str, path: str, name: str) -> Dict[str, Any]:
     """
     Renames a file or directory in the user's upload space.
     This operation is only implemented for files and directories within the uploads directory.
 
     Args:
         context: The MCP context.
+        user: user: The ID of the user for whom the directory or file will be renamed
         path: The path to the file or directory to rename, relative to the uploads directory (e.g., 'data.txt' or 'samples/data.txt').
         name: The new name for the file or directory.
     """
-    params = {"path": path, "name": name}
+    params = {"path": f"/users/{user}/{path}", "name": name}
     return _make_request(context, "PUT", "/v1/data/rename", params=params)
 
 # ------------------------------------------------------------------------------
 
 @mcp.tool()
-def create_directory(context: Context, path: str) -> Dict[str, Any]:
+def create_directory(context: Context, user: str, path: str) -> Dict[str, Any]:
     """
     Creates a new directory in the user's upload space.
     This operation is not recursive; the parent directory must already exist.
 
     Args:
         context: The MCP context.
+        user: user: The ID of the user for whom the directory will be created
         path: The path for the new directory, relative to the uploads directory (e.g., 'new_folder' or 'new_folder/sub_folder').
     """
-    return _make_request(context, "PUT", f"/v1/data/createDirectory/{path}")
+    return _make_request(context, "PUT", f"/v1/data/createDirectory//users/{user}/{path}")
 
 # ------------------------------------------------------------------------------
 
 @mcp.tool()
-def delete_file_or_directory(context: Context, path: str) -> Dict[str, Any]:
+def delete_file_or_directory(context: Context, user: str, path: str) -> Dict[str, Any]:
     """
     Deletes a file or directory.
     Supports deleting from the user's upload space or from job results.
 
     Args:
         context: The MCP context.
+        user: user: The ID of the user for whom the directory or file will be deleted
         path: The path to the file or directory to delete. For user uploads, use paths relative to the uploads directory (e.g., 'data.txt' or 'samples/data.txt'). For job results, use paths like 'jobResults/123/output.txt'.
     """
-    return _make_request(context, "DELETE", f"/v1/data/delete/{path}")
+    return _make_request(context, "DELETE", f"/v1/data/delete//users/{user}/{path}")
 
 # ------------------------------------------------------------------------------
 
@@ -90,18 +93,20 @@ def get_user_files(context: Context) -> Dict[str, Any]:
 
 # ------------------------------------------------------------------------------
 
-@mcp.tool()
-def download_item(context: Context, path: str) -> Dict[str, Any]:
-    """
-    Downloads a file or directory. Currently, only directory downloads are implemented,
-    which are returned as a zip archive. Single file downloads should use the DataServlet.
-
-    Args:
-        context: The MCP context.
-        path: The path to the directory to download, relative to the uploads directory (e.g., 'my_folder' or 'samples/my_folder').
-    """
-    params = {"path": path}
-    return _make_request(context, "GET", "/v1/data/download", params=params)
+# REMOVED: Downloading directories from S3 is not currently supported
+#
+# @mcp.tool()
+# def download_item(context: Context, path: str) -> Dict[str, Any]:
+#     """
+#     Downloads a file or directory. Currently, only directory downloads are implemented,
+#     which are returned as a zip archive. Single file downloads should use the DataServlet.
+#
+#     Args:
+#         context: The MCP context.
+#         path: The path to the directory to download, relative to the uploads directory (e.g., 'my_folder' or 'samples/my_folder').
+#     """
+#     params = {"path": path}
+#     return _make_request(context, "GET", "/v1/data/download", params=params)
 
 # ------------------------------------------------------------------------------
 
