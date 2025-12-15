@@ -187,6 +187,17 @@ All flags correspond to environment variables; environment values are applied be
   - Env: FASTMCP_HOST
   - Default: 0.0.0.0
 
+- --local-files, -l
+  - Description: Enable or disable local file operations (upload/download). When False, the following tools are disabled:
+    - upload_whole_file
+    - download_job_results
+    - upload_file
+    - upload_job_input_from_body
+    - upload_job_input_from_form
+    - upload_job_output
+  - Env: LOCAL_FILES_ENABLED
+  - Default: True
+
 
 ## Security notes
 - Treat GENEPATTERN_KEY like a password. Prefer environment variables over hardcoding.

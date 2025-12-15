@@ -1,6 +1,6 @@
 from mcp.server.fastmcp import Context
 from typing import Dict, Any, Optional
-from ._shared import _make_request, mcp
+from ._shared import _make_request, mcp, GENEPATTERN_URL, LOCAL_FILES_ENABLED
 
 
 @mcp.tool()
@@ -11,12 +11,30 @@ def rename_file(context: Context, user: str, path: str, name: str) -> Dict[str, 
 
     Args:
         context: The MCP context.
-        user: user: The ID of the user for whom the directory or file will be renamed
+        user: The ID of the user for whom the directory or file will be renamed
         path: The path to the file or directory to rename, relative to the uploads directory (e.g., 'data.txt' or 'samples/data.txt').
         name: The new name for the file or directory.
     """
     params = {"path": f"/users/{user}/{path}", "name": name}
     return _make_request(context, "PUT", "/v1/data/rename", params=params)
+
+# ------------------------------------------------------------------------------
+
+@mcp.tool()
+def get_download_link(context: Context, user: str, path: str) -> Dict[str, Any]:
+    """
+    Returns a download link to a file in the user's upload directory.
+
+    Args:
+        context: The MCP context.
+        user: The ID of the user who owns the file.
+        path: The path to the file, relative to the uploads directory (e.g., 'data.txt' or 'samples/data.txt').
+
+    Returns:
+        A dictionary containing the download URL.
+    """
+    download_url = f"{GENEPATTERN_URL}/users/{user}/{path}"
+    return {"download_url": download_url}
 
 # ------------------------------------------------------------------------------
 
@@ -110,77 +128,81 @@ def get_user_files(context: Context) -> Dict[str, Any]:
 
 # ------------------------------------------------------------------------------
 
-@mcp.tool()
-def upload_file(
-    context: Context, path: str, file_content: bytes, replace: bool = False
-) -> Dict[str, Any]:
-    """
-    Uploads a file to a specified path in the user's upload directory.
-    The file content is sent as the raw request body.
+if LOCAL_FILES_ENABLED:
+    @mcp.tool()
+    def upload_file(
+        context: Context, path: str, file_content: bytes, replace: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Uploads a file to a specified path in the user's upload directory.
+        The file content is sent as the raw request body.
 
-    Args:
-        context: The MCP context.
-        path: The destination path for the file, relative to the user's upload root (e.g., 'new_data.txt' or 'folder/new_data.txt').
-        file_content: The raw byte content of the file to upload.
-        replace: If True, overwrite the file if it already exists. Defaults to False.
-    """
-    params = {"replace": replace}
-    return _make_request(context, "PUT", f"/v1/data/upload/{path}", params=params, data=file_content)
-
-# ------------------------------------------------------------------------------
-
-@mcp.tool()
-def upload_job_input_from_body(
-    context: Context, name: str, file_content: bytes
-) -> Dict[str, Any]:
-    """
-    Uploads a file to be used as a job input. The file content is sent as the raw request body,
-    and the filename is specified as a query parameter. The file is stored in a temporary location.
-
-    Args:
-        context: The MCP context.
-        name: The name of the file being uploaded.
-        file_content: The raw byte content of the file.
-    """
-    params = {"name": name}
-    return _make_request(context, "POST", "/v1/data/upload/job_input", params=params, data=file_content)
+        Args:
+            context: The MCP context.
+            path: The destination path for the file, relative to the user's upload root (e.g., 'new_data.txt' or 'folder/new_data.txt').
+            file_content: The raw byte content of the file to upload.
+            replace: If True, overwrite the file if it already exists. Defaults to False.
+        """
+        params = {"replace": replace}
+        return _make_request(context, "PUT", f"/v1/data/upload/{path}", params=params, data=file_content)
 
 # ------------------------------------------------------------------------------
 
-@mcp.tool()
-def upload_job_input_from_form(
-    context: Context, file_content: bytes, file_name: str
-) -> Dict[str, Any]:
-    """
-    Uploads a file from a multipart form to be used as a job input.
-    This method creates a new resource and is an alternative to sending raw file data in the request body.
+if LOCAL_FILES_ENABLED:
+    @mcp.tool()
+    def upload_job_input_from_body(
+        context: Context, name: str, file_content: bytes
+    ) -> Dict[str, Any]:
+        """
+        Uploads a file to be used as a job input. The file content is sent as the raw request body,
+        and the filename is specified as a query parameter. The file is stored in a temporary location.
 
-    Args:
-        context: The MCP context.
-        file_content: The raw byte content of the file.
-        file_name: The name to assign to the file in the form data.
-    """
-    files = {"file": (file_name, file_content)}
-    return _make_request(context, "POST", "/v1/data/upload/job_input_form", files=files)
+        Args:
+            context: The MCP context.
+            name: The name of the file being uploaded.
+            file_content: The raw byte content of the file.
+        """
+        params = {"name": name}
+        return _make_request(context, "POST", "/v1/data/upload/job_input", params=params, data=file_content)
 
 # ------------------------------------------------------------------------------
 
-@mcp.tool()
-def upload_job_output(
-    context: Context, name: str, jobid: str, file_content: bytes
-) -> Dict[str, Any]:
-    """
-    Uploads a file to be associated as an output file for a specific job.
-    The user must have write permissions for the target job.
+if LOCAL_FILES_ENABLED:
+    @mcp.tool()
+    def upload_job_input_from_form(
+        context: Context, file_content: bytes, file_name: str
+    ) -> Dict[str, Any]:
+        """
+        Uploads a file from a multipart form to be used as a job input.
+        This method creates a new resource and is an alternative to sending raw file data in the request body.
 
-    Args:
-        context: The MCP context.
-        name: The name to give the output file.
-        jobid: The ID of the job to associate the file with.
-        file_content: The raw byte content of the file.
-    """
-    params = {"name": name, "jobid": jobid}
-    return _make_request(context, "POST", "/v1/data/upload/job_output", params=params, data=file_content)
+        Args:
+            context: The MCP context.
+            file_content: The raw byte content of the file.
+            file_name: The name to assign to the file in the form data.
+        """
+        files = {"file": (file_name, file_content)}
+        return _make_request(context, "POST", "/v1/data/upload/job_input_form", files=files)
+
+# ------------------------------------------------------------------------------
+
+if LOCAL_FILES_ENABLED:
+    @mcp.tool()
+    def upload_job_output(
+        context: Context, name: str, jobid: str, file_content: bytes
+    ) -> Dict[str, Any]:
+        """
+        Uploads a file to be associated as an output file for a specific job.
+        The user must have write permissions for the target job.
+
+        Args:
+            context: The MCP context.
+            name: The name to give the output file.
+            jobid: The ID of the job to associate the file with.
+            file_content: The raw byte content of the file.
+        """
+        params = {"name": name, "jobid": jobid}
+        return _make_request(context, "POST", "/v1/data/upload/job_output", params=params, data=file_content)
 
 # ------------------------------------------------------------------------------
 

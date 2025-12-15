@@ -68,12 +68,29 @@ parser.add_argument('--host', '-H',
         "Default: 0.0.0.0"
     )
 )
+parser.add_argument('--local-files', '-l',
+    type=str, default=os.getenv('LOCAL_FILES_ENABLED', 'True'),
+    choices=['True', 'true', 'False', 'false'],
+    help=(
+        "Enable or disable local file operations (upload/download).\n"
+        "When False, the following tools are disabled:\n"
+        "  - upload_whole_file\n"
+        "  - download_job_results\n"
+        "  - upload_file\n"
+        "  - upload_job_input_from_body\n"
+        "  - upload_job_input_from_form\n"
+        "  - upload_job_output\n"
+        "Env Variable: LOCAL_FILES_ENABLED\n"
+        "Default: True"
+    )
+)
 args, unknown = parser.parse_known_args()
 
 # Set environment variables
 os.environ["GENEPATTERN_URL"] = str(args.genepattern)
 if args.key: os.environ["GENEPATTERN_KEY"] = str(args.key)
 os.environ["FASTMCP_PORT"] = str(args.port)
+os.environ["LOCAL_FILES_ENABLED"] = str(args.local_files)
 
 # Import the MCP server and set AuthHandler
 from genepattern_mcp._shared import mcp

@@ -109,6 +109,9 @@ mcp = GenePatternMCP("GenePattern")
 GENEPATTERN_URL = os.environ.get("GENEPATTERN_URL", "https://cloud.genepattern.org/gp")
 REST_URL = f"{GENEPATTERN_URL}/rest"
 
+# Configuration for local file operations
+LOCAL_FILES_ENABLED = os.environ.get("LOCAL_FILES_ENABLED", "True").lower() in ("true", "1", "yes")
+
 
 def _make_request(context: Context, method: str, path: str, params: Optional[Dict[str, Any]] = None,
                   json_data: Optional[Dict[str, Any]] = None, data: Optional[Any] = None,

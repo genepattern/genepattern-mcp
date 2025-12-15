@@ -1,7 +1,7 @@
 from mcp.server.fastmcp import Context
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
-from ._shared import _make_request, mcp
+from ._shared import _make_request, mcp, LOCAL_FILES_ENABLED, REST_URL
 
 # ------------------------------------------------------------------------------
 # Pydantic Models for Job Submission
@@ -369,16 +369,33 @@ def delete_job_tag(context: Context, job_id: int, job_tag_id: int) -> Dict[str, 
 # Job-related Utilities
 # ------------------------------------------------------------------------------
 
+if LOCAL_FILES_ENABLED:
+    @mcp.tool()
+    def download_job_results(context: Context, job_id: str) -> Dict[str, Any]:
+        """
+        Downloads the result files of a job as a zip archive.
+
+        Args:
+            context: The MCP context.
+            job_id: The ID of the job.
+        """
+        return _make_request(context, "GET", f"/v1/jobs/{job_id}/download")
+
+
 @mcp.tool()
-def download_job_results(context: Context, job_id: str) -> Dict[str, Any]:
+def download_job_link(context: Context, job_id: str) -> Dict[str, Any]:
     """
-    Downloads the result files of a job as a zip archive.
+    Returns a download URL for the job result files as a zip archive.
 
     Args:
         context: The MCP context.
         job_id: The ID of the job.
+
+    Returns:
+        A dictionary containing the download URL.
     """
-    return _make_request(context, "GET", f"/v1/jobs/{job_id}/download")
+    download_url = f"{REST_URL}/v1/jobs/{job_id}/download"
+    return {"download_url": download_url}
 
 
 @mcp.tool()

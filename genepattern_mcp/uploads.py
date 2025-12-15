@@ -1,26 +1,27 @@
 from mcp.server.fastmcp import Context
 from typing import Dict, Any, Optional
-from ._shared import _make_request, mcp
+from ._shared import _make_request, mcp, LOCAL_FILES_ENABLED
 
 
 # ------------------------------------------------------------------------------
 # Standard Whole File Upload
 # ------------------------------------------------------------------------------
 
-@mcp.tool()
-def upload_whole_file(
-    context: Context, path: str, file_content: bytes
-) -> Dict[str, Any]:
-    """
-    Uploads an entire file in a single POST request to a specified path in the user's upload directory.
+if LOCAL_FILES_ENABLED:
+    @mcp.tool()
+    def upload_whole_file(
+        context: Context, path: str, file_content: bytes
+    ) -> Dict[str, Any]:
+        """
+        Uploads an entire file in a single POST request to a specified path in the user's upload directory.
 
-    Args:
-        context: The MCP context.
-        path: The destination path for the file, relative to the user's upload root (e.g., 'data/my_file.txt').
-        file_content: The raw byte content of the file to upload.
-    """
-    params = {"path": path}
-    return _make_request(context, "POST", "/v1/upload/whole", params=params, data=file_content)
+        Args:
+            context: The MCP context.
+            path: The destination path for the file, relative to the user's upload root (e.g., 'data/my_file.txt').
+            file_content: The raw byte content of the file to upload.
+        """
+        params = {"path": path}
+        return _make_request(context, "POST", "/v1/upload/whole", params=params, data=file_content)
 
 # ------------------------------------------------------------------------------
 # Server-Side Chunked Upload
