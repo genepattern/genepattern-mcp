@@ -38,7 +38,14 @@ def get_all_tasks(
     params = {}
     if include_hidden:
         params["includeHidden"] = "true"
-    return _make_request(context, "GET", "/v1/tasks/all.json", params=params)
+
+    result = _make_request(context, "GET", "/v1/tasks/all.json", params=params)
+
+    # Add modules_count property
+    if isinstance(result, dict) and 'all_modules' in result:
+        result['modules_count'] = len(result['all_modules'])
+
+    return result
 
 # ------------------------------------------------------------------------------
 
