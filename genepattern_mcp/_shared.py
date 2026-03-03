@@ -145,7 +145,8 @@ def _make_request(context: Context, method: str, path: str, params: Optional[Dic
     # Filter out None values from params so they aren't sent
     if params: params = {k: v for k, v in params.items() if v is not None}
 
-    print(f"Making {method} request to {REST_URL}{path} with params={params}, json_data={json_data}, data={'<binary>' if data else None}, files={'<files>' if files else None}, headers={headers}")
+    # Note: Debug logging removed to prevent memory leaks from stdout buffer accumulation
+    # When running as a long-lived service, printing large response bodies causes unbounded memory growth
 
     try:
         response = requests.request(
@@ -159,9 +160,10 @@ def _make_request(context: Context, method: str, path: str, params: Optional[Dic
         )
         response.raise_for_status()
 
-        print(response.url)
-        print(response.headers)
-        print(response.content)
+        # comment out print statements to avoid memory leaks from stdout buffer accumulation in long-running processes
+        #print(response.url)
+        #print(response.headers)
+        #print(response.content)
 
         if response.status_code == 204:  # No Content
             return {"status": "success", "message": "Request completed with no content."}
