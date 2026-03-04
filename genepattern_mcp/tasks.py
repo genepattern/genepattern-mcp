@@ -1,8 +1,12 @@
 import requests
 import pypdfium2 as pdfium
+import logging
 from mcp.server.fastmcp import Context
 from typing import Dict, Any, Optional, List
 from ._shared import _make_request, mcp, GENEPATTERN_URL
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 @mcp.tool()
@@ -208,7 +212,7 @@ def get_task_documentation(context: Context, task_name_or_lsid: str) -> Optional
 
     # The API returns a dictionary with an 'all_modules' key containing the list
     if not all_tasks_response or 'all_modules' not in all_tasks_response:
-        print("Error: Could not retrieve the list of modules from the server.")
+        logger.error("Could not retrieve the list of modules from the server.")
         return None
 
     module_list = all_tasks_response['all_modules']
@@ -221,7 +225,7 @@ def get_task_documentation(context: Context, task_name_or_lsid: str) -> Optional
             break
 
     if not target_module:
-        print(f"Error: Module '{task_name_or_lsid}' could not be found.")
+        logger.error(f"Module '{task_name_or_lsid}' could not be found.")
         return None
 
     # 3. Get the documentation URL and determine its MIME type
@@ -229,13 +233,13 @@ def get_task_documentation(context: Context, task_name_or_lsid: str) -> Optional
     doc_mimetype = target_module.get("documentation_mimetype")
 
     if not doc_url:
-        print(f"Warning: No documentation URL is available for module '{task_name_or_lsid}'.")
+        logger.warning(f"No documentation URL is available for module '{task_name_or_lsid}'.")
         return None
 
     # Infer MIME type if it's not explicitly provided
     if not doc_mimetype:
         doc_mimetype = 'application/pdf' if doc_url.lower().endswith('.pdf') else 'text/html'
-        print(f"Warning: MIME type not specified. Inferred as '{doc_mimetype}'.")
+        logger.debug(f"MIME type not specified. Inferred as '{doc_mimetype}'.")
 
     # 4. Fetch the documentation content from its URL (follow HTTP and HTML meta refresh redirects)
     try:
@@ -260,60 +264,68 @@ def get_task_documentation(context: Context, task_name_or_lsid: str) -> Optional
         def _fetch_follow_meta(url: str, max_hops: int = 3) -> requests.Response:
             current_url = url
             for _ in range(max_hops + 1):
-                resp = requests.get(current_url, timeout=30, allow_redirects=True)
+                # Use context manager to ensure response is properly closed
+                with requests.get(current_url, timeout=30, allow_redirects=True) as resp:
+                    resp.raise_for_status()
+                    content_type = resp.headers.get("Content-Type", "")
+                    if "html" in content_type.lower():
+                        parser = _MetaRefreshParser()
+                        # Use response.text to leverage requests' encoding detection
+                        parser.feed(resp.text)
+                        if parser.refresh_url:
+                            next_url = urljoin(resp.url, parser.refresh_url)
+                            if not next_url or next_url == current_url:
+                                # Store content before exiting context manager
+                                return resp.content, resp.headers.get("Content-Type", ""), resp.url
+                            current_url = next_url
+                            # continue to next loop iteration to fetch the new URL
+                            continue
+                    # Store content before exiting context manager
+                    return resp.content, resp.headers.get("Content-Type", ""), resp.url
+            # After exhausting hops, make one final request
+            with requests.get(current_url, timeout=30, allow_redirects=True) as resp:
                 resp.raise_for_status()
-                content_type = resp.headers.get("Content-Type", "")
-                if "html" in content_type.lower():
-                    parser = _MetaRefreshParser()
-                    # Use response.text to leverage requests' encoding detection
-                    parser.feed(resp.text)
-                    if parser.refresh_url:
-                        next_url = urljoin(resp.url, parser.refresh_url)
-                        if not next_url or next_url == current_url:
-                            return resp
-                        current_url = next_url
-                        # continue to next loop iteration to fetch the new URL
-                        continue
-                return resp
-            return resp  # after exhausting hops, return last response
+                return resp.content, resp.headers.get("Content-Type", ""), resp.url
 
         full_url = f"{GENEPATTERN_URL[:-3]}{doc_url}"
-        print(f"Fetching documentation for '{task_name_or_lsid}' from {full_url} (following meta refresh if present)...")
-        response = _fetch_follow_meta(full_url)
-        doc_bytes = response.content
+        logger.info(f"Fetching documentation for '{task_name_or_lsid}' from {full_url}")
+        doc_bytes, content_type_header, final_url = _fetch_follow_meta(full_url)
 
         # Prefer server-declared content type; fallback to extension of final URL or previously inferred type
-        content_type = response.headers.get("Content-Type", "")
-        final_url = getattr(response, "url", None)
-        if content_type:
-            doc_mimetype = content_type.lower()
+        if content_type_header:
+            doc_mimetype = content_type_header.lower()
         elif final_url and isinstance(final_url, str) and final_url.lower().endswith(".pdf"):
             doc_mimetype = "application/pdf"
         else:
             doc_mimetype = doc_mimetype or ("application/pdf" if (final_url and isinstance(final_url, str) and final_url.lower().endswith(".pdf")) else "text/html")
 
     except requests.exceptions.RequestException as e:
-        print(f"Error: Network request to fetch documentation failed: {e}")
+        logger.error(f"Network request to fetch documentation failed: {e}")
         return None
 
     # 5. Process the downloaded content based on its type
-    print(f"Processing content with MIME type: {doc_mimetype}...")
+    logger.debug(f"Processing content with MIME type: {doc_mimetype}")
     if "pdf" in doc_mimetype:
         try:
             # Use pypdfium2 to extract text directly from the PDF bytes
+            # Use context manager to ensure proper cleanup of PDF resources
             pdf_doc = pdfium.PdfDocument(doc_bytes)
-            text_content = "\n".join(page.get_textpage().get_text_range() for page in pdf_doc)
-            return text_content
+            try:
+                text_content = "\n".join(page.get_textpage().get_text_range() for page in pdf_doc)
+                return text_content
+            finally:
+                # Explicitly close the PDF document to release memory
+                pdf_doc.close()
         except Exception as e:
-            print(f"Error: Failed to convert PDF documentation to text: {e}")
+            logger.error(f"Failed to convert PDF documentation to text: {e}")
             return None
     elif "text" in doc_mimetype or "html" in doc_mimetype:
         try:
             # Decode the text content, with a fallback for encoding issues
             return doc_bytes.decode('utf-8')
         except UnicodeDecodeError:
-            print("Warning: UTF-8 decoding failed. Falling back to latin-1.")
+            logger.warning("UTF-8 decoding failed. Falling back to latin-1.")
             return doc_bytes.decode('latin-1')
     else:
-        print(f"Error: Unsupported documentation MIME type '{doc_mimetype}'.")
+        logger.error(f"Unsupported documentation MIME type '{doc_mimetype}'.")
         return None
