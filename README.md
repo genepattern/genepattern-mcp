@@ -1,100 +1,175 @@
-# GenePattern MCP Server
+<!-- Banner -->
+<p align="center">
+  <!-- Replace with your actual banner image -->
+  <img src="https://raw.githubusercontent.com/genepattern/genepattern-mcp/main/docs/banner.png" alt="GenePattern MCP Banner" width="800"/>
+</p>
 
-A Model Context Protocol (MCP) server that lets AI coding assistants call GenePattern to list/run modules, manage jobs, and access data.
+<h1 align="center">GenePattern MCP Server</h1>
 
-This README explains how to:
-- Run the server (stdio and HTTP)
-- Use Docker (image: genepattern/mcp)
-- Connect from Claude Code, Cursor, or other MCP-enabled clients
-- Configure all server arguments and environment variables
+<div align="center">
+  <em>Bridge any AI coding assistant directly to GenePattern — run bioinformatics modules, manage cloud jobs, and stream results, all through natural language.</em>
 
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![License: BSD-3](https://img.shields.io/badge/license-BSD--3--Clause-green)](LICENSE)
+[![Powered by GenePattern](https://img.shields.io/badge/Powered%20by-GenePattern-blueviolet)](https://genepattern.ucsd.edu/)
+
+</div>
+
+---
+
+## Why GenePattern MCP?
+
+Modern AI assistants are extraordinarily good at reasoning — but they can't run a gene expression pipeline or execute bioinformatics on their own. We built GenePattern MCP to close that gap.
+
+By implementing the [Model Context Protocol (MCP)](https://modelcontextprotocol.io), this server exposes the full GenePattern REST API as a set of structured, type-safe tools that any MCP-compatible AI client (Claude, Cursor, GitHub Copilot, and more) can call directly. The result: your AI assistant can now:
+
+- 🧬 **Search, inspect, and execute** hundreds of peer-reviewed genomic analysis modules
+- 🤖 **Chain bioinformatic tasks** into multi-step AI-driven workflows — no manual API calls required
+- ☁️ **Scale effortlessly** on GenePattern's cloud infrastructure at [cloud.genepattern.org](https://cloud.genepattern.org)
+- 📊 **Guarantee reproducibility** — every job is tracked by LSID and stored with full provenance
+
+> From raw expression data to publication-ready insights — powered by a conversation.
+
+---
+
+## Feature Highlights
+
+| Feature | Description |
+|---|---|
+| 🧬 **Genomic Integration** | Access 200+ curated modules: differential expression, pathway analysis, single-cell, proteomics, and more |
+| 🤖 **AI/ML Workflows** | Let your LLM orchestrate multi-step pipelines end-to-end via natural language prompts |
+| ☁️ **Cloud Scalability** | Jobs run on GenePattern's managed cloud — no local compute needed |
+| 📊 **Reproducible Science** | Every module is versioned by LSID; every job is logged and retrievable |
+| 🔌 **Multi-Transport** | `stdio` for local clients, `streamable-http` / `SSE` for remote or containerized deployments |
+| 🔐 **Flexible Auth** | Pluggable `AuthHandler` system — env-var token, HTTP Bearer header, or bring your own |
+| 🐳 **Docker-Ready** | Official image at `genepattern/mcp`; zero-config cloud deployment |
+
+---
 
 ## Prerequisites
-- Python 3.11+
-- pip (or uv if preferred)
-- A GenePattern API token (see “Get a GenePattern token” below)
 
+- **Python 3.11+**
+- A **GenePattern API token** (see [Get a Token](#get-a-genepattern-token) below)
+- `pip` or `uv`
+
+---
 
 ## Installation
-- With pip:
-  - pip install -r requirements.txt
-- With uv:
-  - uv venv
-  - source .venv/bin/activate
-  - uv pip install -r requirements.txt
 
+**With pip:**
+```bash
+pip install -r requirements.txt
+```
 
-## Get a GenePattern token
-You can authenticate with a Bearer token via the GENEPATTERN_KEY environment variable.
+**With uv:**
+```bash
+uv venv && source .venv/bin/activate
+uv pip install -r requirements.txt
+```
 
-- If you already have an API token, set it:
-  - export GENEPATTERN_KEY="YOUR_TOKEN"
+---
 
-- Or generate a token with the included helper:
-  - python get-token.py -s https://cloud.genepattern.org/gp -u YOUR_USERNAME -p YOUR_PASSWORD
-  - Follow the printed instructions to export GENEPATTERN_KEY
+## Get a GenePattern Token
 
-You can also switch to an HTTP header–based auth handler for HTTP mode; see the --auth-handler flag below.
+You need a Bearer token to authenticate with GenePattern.
 
+**Option A — You already have a token:**
+```bash
+export GENEPATTERN_KEY="YOUR_TOKEN"
+```
 
-## How to run the server
-The server supports multiple transports via FastMCP.
+**Option B — Generate one with the included helper:**
+```bash
+python get-token.py -s https://cloud.genepattern.org/gp \
+                    -u YOUR_USERNAME \
+                    -p YOUR_PASSWORD
+# Follow the printed instructions to export GENEPATTERN_KEY
+```
 
-- Stdio (recommended for local MCP clients):
-  - python server.py --transport stdio
+---
 
-- HTTP (streamable-http, default):
-  - python server.py --transport streamable-http --host 0.0.0.0 --port 3000
+## Quick Start
 
-- SSE:
-  - python server.py --transport sse --host 0.0.0.0 --port 3000
+### 1. Start the server (local stdio — recommended for AI clients)
+```bash
+export GENEPATTERN_KEY="YOUR_TOKEN"
+python server.py --transport stdio
+```
 
-Environment variables can be used instead of flags; see the Arguments section.
+### 2. Run a bioinformatic analysis via your AI assistant
 
-Tip: Explore available MCP tools locally with:
-- mcp dev server.py
+Once connected, ask your AI assistant something like:
 
+> *"Run PreprocessDataset on `all_aml_test.gct`, threshold at 20/1500, and download the result."*
 
-## Testing with copilot
+The MCP server will:
+1. Look up the `PreprocessDataset` module LSID automatically
+2. Submit the job to GenePattern cloud
+3. Poll for completion and return the output file paths
 
-To test the MCP server with GenePattern copilot, you can use the following command:
+### 3. Explore available tools interactively
+```bash
+mcp dev server.py
+```
 
-> python server.py --transport streamable-http --host 0.0.0.0 --port 3000 --auth-handler genepattern_mcp._shared.HeaderAuthHandler
+---
 
+## Running the Server
+
+The server supports three transport modes via [FastMCP](https://github.com/jlowin/fastmcp).
+
+| Mode | Command |
+|---|---|
+| **stdio** (local AI clients) | `python server.py --transport stdio` |
+| **HTTP** (remote / Docker) | `python server.py --transport streamable-http --host 0.0.0.0 --port 3000` |
+| **SSE** | `python server.py --transport sse --host 0.0.0.0 --port 3000` |
+
+> **Testing with GenePattern Copilot:**
+> ```bash
+> python server.py --transport streamable-http --host 0.0.0.0 --port 3000 \
+>     --auth-handler genepattern_mcp._shared.HeaderAuthHandler
+> ```
+
+---
 
 ## Docker
-An official container is available at genepattern/mcp.
 
-- Pull the image:
-  - docker pull genepattern/mcp
+Pull and run the official image in seconds:
 
-- Run in HTTP mode (recommended for Docker):
-  - docker run --rm \
-      -e GENEPATTERN_URL=https://cloud.genepattern.org/gp \
-      -e GENEPATTERN_KEY=YOUR_TOKEN \
-      -e FASTMCP_TRANSPORT=streamable-http \
-      -e FASTMCP_HOST=0.0.0.0 \
-      -e FASTMCP_PORT=3000 \
-      -p 3000:3000 \
-      genepattern/mcp
+```bash
+docker pull genepattern/mcp
+```
 
-- Using Authorization header instead of env token (HTTP only):
-  - docker run --rm -p 3000:3000 \
-      -e AUTH_HANDLER=genepattern_mcp._shared.HeaderAuthHandler \
-      -e FASTMCP_TRANSPORT=streamable-http \
-      genepattern/mcp
-  Then send requests with: Authorization: Bearer YOUR_TOKEN
+**Run in HTTP mode:**
+```bash
+docker run --rm \
+  -e GENEPATTERN_URL=https://cloud.genepattern.org/gp \
+  -e GENEPATTERN_KEY=YOUR_TOKEN \
+  -e FASTMCP_TRANSPORT=streamable-http \
+  -e FASTMCP_HOST=0.0.0.0 \
+  -e FASTMCP_PORT=3000 \
+  -p 3000:3000 \
+  genepattern/mcp
+```
 
-Note: Stdio transport is not practical from Docker containers; prefer HTTP when containerized.
+**Using Authorization header instead of an env token (stateless, multi-user HTTP):**
+```bash
+docker run --rm -p 3000:3000 \
+  -e AUTH_HANDLER=genepattern_mcp._shared.HeaderAuthHandler \
+  -e FASTMCP_TRANSPORT=streamable-http \
+  genepattern/mcp
+# Clients send: Authorization: Bearer YOUR_TOKEN
+```
 
+> **Note:** `stdio` transport is impractical inside Docker containers. Use `streamable-http` when containerized.
 
-## Connect from MCP-enabled clients
-Below are examples. UI details may vary by client/version—consult your client’s documentation for the most current instructions.
+---
 
-### Claude Code (VS Code extension)
-Use stdio transport when running the server locally.
+## Connect from MCP-Enabled Clients
 
-- Open VS Code Settings (JSON) and add an entry like:
+### Claude Code (VS Code)
+
+**Local stdio (recommended):**
 ```json
 {
   "mcpServers": {
@@ -109,14 +184,15 @@ Use stdio transport when running the server locally.
   }
 }
 ```
-- Or if running the MCP server independently:
+
+**Remote HTTP server:**
 ```json
 {
   "mcpServers": {
     "genepattern": {
       "type": "streamable-http",
       "url": "http://localhost:3000/mcp",
-      "env": { 
+      "env": {
         "GENEPATTERN_URL": "https://cloud.genepattern.org/gp",
         "GENEPATTERN_KEY": "<GP API TOKEN>"
       }
@@ -124,15 +200,11 @@ Use stdio transport when running the server locally.
   }
 }
 ```
-- Ensure GENEPATTERN_KEY is set in your shell environment (or inline in env above).
-
-To connect to a Dockerized HTTP server instead (when supported by your client):
-- Start the container as above, then configure the client to use the HTTP endpoint at http://localhost:3000 using the streamable-http transport (client support varies).
 
 ### Cursor
-Cursor supports MCP servers as well.
 
-- Add a new MCP server (via Cursor Settings UI) and point it to your local stdio command, e.g.:
+Add via **Cursor Settings → MCP Servers**:
+```json
 {
   "mcpServers": {
     "genepattern": {
@@ -145,69 +217,89 @@ Cursor supports MCP servers as well.
     }
   }
 }
-- Alternatively, for a Dockerized server, configure an HTTP connection to http://localhost:3000 if the client supports HTTP MCP.
+```
 
-### Other MCP-enabled software
-- Stdio: invoke this repo’s server.py with --transport stdio.
-- HTTP: connect to http://HOST:PORT using streamable-http or sse according to your client’s capabilities. If using Authorization header, set AUTH_HANDLER=genepattern_mcp._shared.HeaderAuthHandler and send Authorization: Bearer <token>.
+### Other MCP Clients
+- **stdio:** invoke `server.py --transport stdio`
+- **HTTP/SSE:** connect to `http://HOST:PORT` using the appropriate transport
+- **Multi-user HTTP:** set `AUTH_HANDLER=genepattern_mcp._shared.HeaderAuthHandler` and pass `Authorization: Bearer <token>` per request
 
+---
 
-## Arguments and environment variables
-All flags correspond to environment variables; environment values are applied before CLI args.
+## Configuration Reference
 
-- --genepattern, -g
-  - Description: The URL of the GenePattern server, including /gp
-  - Env: GENEPATTERN_URL
-  - Default: https://cloud.genepattern.org/gp
+All CLI flags have a corresponding environment variable. Environment variables are applied before CLI arguments.
 
-- --key, -k
-  - Description: Your GenePattern API key (Bearer token)
-  - Env: GENEPATTERN_KEY
-  - Default: None
+| Flag | Env Variable | Default | Description |
+|---|---|---|---|
+| `--genepattern`, `-g` | `GENEPATTERN_URL` | `https://cloud.genepattern.org/gp` | GenePattern server URL (include `/gp`) |
+| `--key`, `-k` | `GENEPATTERN_KEY` | `None` | Your GenePattern API Bearer token |
+| `--auth-handler`, `-a` | `AUTH_HANDLER` | `EnvAuthHandler` | Full Python path to an `AuthHandler` class (see below) |
+| `--transport`, `-t` | `FASTMCP_TRANSPORT` | `streamable-http` | Transport protocol: `streamable-http`, `stdio`, or `sse` |
+| `--port`, `-p` | `FASTMCP_PORT` | `3000` | Port to listen on (HTTP/SSE only) |
+| `--host`, `-H` | `FASTMCP_HOST` | `0.0.0.0` | Host interface to bind (HTTP/SSE only) |
+| `--local-files`, `-l` | `LOCAL_FILES_ENABLED` | `True` | Enable local file upload/download tools |
 
-- --auth-handler, -a
-  - Description: Full Python path to an AuthHandler class to retrieve the API key. Built-ins:
-    - genepattern_mcp._shared.EnvAuthHandler (default, reads GENEPATTERN_KEY)
-    - genepattern_mcp._shared.HeaderAuthHandler (reads Authorization: Bearer <token> for HTTP)
-  - Env: AUTH_HANDLER
-  - Default: genepattern_mcp._shared.EnvAuthHandler
+### Auth Handlers
 
-- --transport, -t
-  - Description: Transport protocol to use (streamable-http, stdio, or sse)
-  - Env: FASTMCP_TRANSPORT
-  - Default: streamable-http
+| Class | Behavior |
+|---|---|
+| `genepattern_mcp._shared.EnvAuthHandler` | *(default)* Reads `GENEPATTERN_KEY` from environment |
+| `genepattern_mcp._shared.HeaderAuthHandler` | Reads `Authorization: Bearer <token>` from each HTTP request |
+| *custom* | Subclass `AuthHandler` and implement `get_api_key(context)` |
 
-- --port, -p
-  - Description: Port to run the MCP server on (HTTP/SSE only)
-  - Env: FASTMCP_PORT
-  - Default: 3000
+### Local File Tools
 
-- --host, -H
-  - Description: Host/interface to bind (HTTP/SSE only)
-  - Env: FASTMCP_HOST
-  - Default: 0.0.0.0
+When `--local-files` is `False`, the following tools are **disabled**:
 
-- --local-files, -l
-  - Description: Enable or disable local file operations (upload/download). When False, the following tools are disabled:
-    - upload_whole_file
-    - download_job_results
-    - upload_file
-    - upload_job_input_from_body
-    - upload_job_input_from_form
-    - upload_job_output
-  - Env: LOCAL_FILES_ENABLED
-  - Default: True
+- `upload_whole_file`
+- `download_job_results`
+- `upload_file`
+- `upload_job_input_from_body`
+- `upload_job_input_from_form`
+- `upload_job_output`
 
+---
 
-## Security notes
-- Treat GENEPATTERN_KEY like a password. Prefer environment variables over hardcoding.
-- If exposing HTTP to a network, ensure you control access and consider a reverse proxy/TLS.
+## Security Notes
 
+- Treat `GENEPATTERN_KEY` like a password — prefer environment variables over hardcoding tokens.
+- When exposing the HTTP server to a network, put it behind a reverse proxy with TLS (e.g., nginx + Let's Encrypt).
+- For multi-user deployments, use `HeaderAuthHandler` so each user supplies their own token per request.
 
-## Development
-- List and test tools locally:
-  - mcp dev server.py
+---
 
+## Contributing & Community
+
+We believe the best bioinformatics tools are built by the community, for the community. All skill levels welcome — whether you're a genomics researcher, an ML engineer, or just someone who wants to ask an AI to run a pathway analysis.
+
+**Ways to get involved:**
+
+- 🐛 **Found a bug?** [Open an issue](https://github.com/genepattern/genepattern-mcp/issues) — we triage actively.
+- 💡 **Have a feature idea?** Start a [Discussion](https://github.com/genepattern/genepattern-mcp/discussions) — we love hearing about new use cases.
+- 🔧 **Want to contribute code?** Fork the repo, make your changes, and open a PR. Please include tests.
+- 💬 **Need help?** Reach out on the [GenePattern Community Forum](https://groups.google.com/g/genepattern-help) or tag us in an issue.
+
+```bash
+# Get started with development
+git clone https://github.com/genepattern/genepattern-mcp.git
+cd genepattern-mcp
+uv venv && source .venv/bin/activate
+uv pip install -r requirements.txt
+mcp dev server.py   # Explore all tools interactively
+```
+
+---
+
+## Citing This Work
+
+If GenePattern MCP accelerates your research, please cite the underlying GenePattern platform:
+
+Reich M, Liefeld T, Gould J, Lerner J, Tamayo P, Mesirov JP. [GenePattern 2.0](http://www.nature.com/ng/journal/v38/n5/full/ng0506-500.html) Nature Genetics 38 no. 5 (2006): pp500-501 [Google Scholar](http://scholar.google.com/citations?user=lREO6vMAAAAJ&hl=en)
+
+---
 
 ## License
-See LICENSE.
+
+Distributed under the **BSD 3-Clause License**. See [`LICENSE`](LICENSE) for details.
+
