@@ -1,9 +1,3 @@
-<!-- Banner -->
-<p align="center">
-  <!-- Replace with your actual banner image -->
-  <img src="https://raw.githubusercontent.com/genepattern/genepattern-mcp/main/docs/banner.png" alt="GenePattern MCP Banner" width="800"/>
-</p>
-
 <h1 align="center">GenePattern MCP Server</h1>
 
 <div align="center">
