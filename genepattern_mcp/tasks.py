@@ -317,3 +317,50 @@ def get_task_documentation(context: Context, task_name_or_lsid: str) -> Optional
     else:
         print(f"Error: Unsupported documentation MIME type '{doc_mimetype}'.")
         return None
+
+# ------------------------------------------------------------------------------
+
+@mcp.tool()
+def install_module(
+    context: Context,
+    zip_file_path: str,
+    privacy: int = 1,
+) -> Dict[str, Any]:
+    """
+    Installs a GenePattern module from a local zip file by uploading it to the server.
+
+    Sends a multipart/form-data POST request to the /v1/tasks/installModule endpoint.
+    The caller must have appropriate administrative privileges on the GenePattern server.
+
+    Args:
+        context: The MCP context.
+        zip_file_path: The absolute or relative path to the module zip file on the local filesystem.
+        privacy: Access level for the installed module.
+                 Use 1 for public (GPConstants.ACCESS_PUBLIC, the default)
+                 or 2 for private (GPConstants.ACCESS_PRIVATE).
+
+    Returns:
+        A dictionary containing the server response, typically:
+        {"status": "success", "message": "Module installed."} on success, or
+        {"status": "failure", "message": "<error details>"} on failure.
+    """
+    import os
+
+    if not os.path.isfile(zip_file_path):
+        raise FileNotFoundError(f"Module zip file not found: {zip_file_path}")
+
+    file_name = os.path.basename(zip_file_path)
+
+    with open(zip_file_path, "rb") as zip_file:
+        files = {"file": (file_name, zip_file, "application/zip")}
+        data = {"privacy": str(privacy)}
+        return _make_request(
+            context,
+            "POST",
+            "/v1/tasks/installModule",
+            files=files,
+            data=data,
+        )
+
+
+
