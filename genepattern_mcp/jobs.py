@@ -184,13 +184,19 @@ def get_job_details(
     """
     Retrieves a detailed JSON representation for a single job.
 
+    This is the preferred tool for retrieving output files when the user asks about files 
+    from a specific job. For requests about output files from the most recent job, first call 
+    get_recent_jobs(include_output_files=False) to identify the job ID, then call this tool 
+    with that job ID and include_output_files=True.
+
     Args:
         context: The MCP context.
         job_id: The ID of the job to retrieve.
         include_permissions: Whether to include job permissions.
         include_children: For pipelines, whether to include child jobs.
         include_input_params: Whether to include detailed input parameters.
-        include_output_files: Whether to include the list of output files.
+        include_output_files: Whether to include the list of output files. Set to True when 
+            the user specifically asks about output files for this job.
     """
     params = {
         "includePermissions": include_permissions,
@@ -230,22 +236,42 @@ def get_recent_jobs(
     context: Context,
     include_children: bool = True,
     include_input_params: bool = False,
-    include_output_files: bool = True,
+    include_output_files: bool = False,
 ) -> Dict[str, Any]:
     """
     Retrieves a list of the current user's most recent jobs.
+
+    This tool should be called with include_output_files=False (the default) to get a 
+    lightweight list of recent jobs without file details. This is especially important 
+    when requesting output files, as including files for multiple jobs can exceed token 
+    limits. Instead, use this tool first to identify the job(s), then call get_job_details() 
+    with the specific job ID to retrieve output files for just that job.
 
     Args:
         context: The MCP context.
         include_children: Whether to include child jobs for pipelines.
         include_input_params: Whether to include detailed input parameters.
-        include_output_files: Whether to include the list of output files.
+        include_output_files: AVOID SETTING TO TRUE. Keep this False (default) to prevent 
+            token limit issues. If the user needs output files, retrieve the job ID first 
+            with this function, then call get_job_details(job_id, include_output_files=True) 
+            to get files for that specific job only.
     """
     params = {
         "includeChildren": include_children,
         "includeInputParams": include_input_params,
         "includeOutputFiles": include_output_files,
     }
+    
+    # Log a warning if include_output_files is True, as this can cause token limit issues
+    if include_output_files:
+        import sys
+        print("⚠️ WARNING: get_recent_jobs called with include_output_files=True. This can exceed token limits.", 
+              file=sys.stderr)
+        print("⚠️ Consider using get_recent_jobs(include_output_files=False) first to identify the job,", 
+              file=sys.stderr)
+        print("⚠️ then use get_job_details(job_id, include_output_files=True) to get files for that job only.", 
+              file=sys.stderr)
+    
     return _make_request(context, "GET", "/v1/jobs/recent", params=params)
 
 
